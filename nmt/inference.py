@@ -29,7 +29,8 @@ from .utils import misc_utils as utils
 from .utils import nmt_utils
 
 __all__ = ["load_data", "inference",
-           "single_worker_inference", "multi_worker_inference"]
+           "single_worker_inference", "multi_worker_inference",
+           "create_inference", "translate"]
 
 
 def _decode_inference_indices(model, sess, output_infer,
@@ -117,6 +118,56 @@ def inference(ckpt,
         hparams,
         num_workers=num_workers,
         jobid=jobid)
+
+def create_inference(ckpt,
+              hparams,
+              num_workers=1,
+              jobid=0,
+              scope=None):
+  """Perform translation."""
+
+  if not hparams.attention:
+    model_creator = nmt_model.Model
+  elif hparams.attention_architecture == "standard":
+    model_creator = attention_model.AttentionModel
+  elif hparams.attention_architecture in ["gnmt", "gnmt_v2"]:
+    model_creator = gnmt_model.GNMTModel
+  else:
+    raise ValueError("Unknown model architecture")
+
+  infer_model = model_helper.create_infer_model(model_creator, hparams, scope)
+
+  print(infer_model)
+
+  sess = tf.Session(
+        graph=infer_model.graph, config=utils.get_config_proto())
+
+  with infer_model.graph.as_default():
+    loaded_infer_model = model_helper.load_model(
+      infer_model.model, ckpt, sess, "infer")
+
+    print("Successfully load the model!")
+  
+  return infer_model, sess
+
+
+def translate(hparams, infer_model, sess, data):
+  sess.run(
+        infer_model.iterator.initializer,
+        feed_dict={
+            infer_model.src_placeholder: [data],
+            infer_model.batch_size_placeholder: hparams.infer_batch_size
+        })
+
+  translation = nmt_utils.decode(
+          "infer",
+          infer_model.model,
+          sess,
+          subword_option=hparams.subword_option,
+          beam_width=hparams.beam_width,
+          tgt_eos=hparams.eos)
+
+  return translation
 
 
 def single_worker_inference(infer_model,

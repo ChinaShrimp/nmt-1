@@ -24,7 +24,7 @@ import tensorflow as tf
 from ..utils import evaluation_utils
 from ..utils import misc_utils as utils
 
-__all__ = ["decode_and_evaluate", "get_translation"]
+__all__ = ["decode_and_evaluate", "get_translation", "decode"]
 
 
 def decode_and_evaluate(name,
@@ -88,6 +88,49 @@ def decode_and_evaluate(name,
 
   return evaluation_scores
 
+# For translation inference only
+def decode(name,
+          model,
+          sess,
+          subword_option,
+          beam_width,
+          tgt_eos,
+          num_translations_per_input=1,
+          decode=True):
+  """Decode a test set and compute a score according to the evaluation task."""
+  # Decode
+  translation=""
+  print(model)
+  if decode:
+    start_time = time.time()
+    num_sentences = 0
+
+    num_translations_per_input = max(
+        min(num_translations_per_input, beam_width), 1)
+
+    while True:
+      try:
+        nmt_outputs, _ = model.decode(sess)
+        if beam_width == 0:
+          nmt_outputs = np.expand_dims(nmt_outputs, 0)
+
+        batch_size = nmt_outputs.shape[1]
+        num_sentences += batch_size
+
+        for sent_id in range(batch_size):
+          for beam_id in range(num_translations_per_input):
+            translation = get_translation(
+                nmt_outputs[beam_id],
+                sent_id,
+                tgt_eos=tgt_eos,
+                subword_option=subword_option)
+      except tf.errors.OutOfRangeError:
+        utils.print_time(
+            "  done, num sentences %d, num translations per input %d" %
+            (num_sentences, num_translations_per_input), start_time)
+        break
+
+  return translation
 
 def get_translation(nmt_outputs, sent_id, tgt_eos, subword_option):
   """Given batch decoding outputs, select a sentence and turn to text."""
