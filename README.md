@@ -1,3 +1,24 @@
+# TCP Server for inference
+Based on official code base, TCP server functionality is added for inference. 
+```
+python -m nmt.infer_server \
+    --src=de --tgt=en \
+    --ckpt=../nmt_models/WMT-German-English/deen_model_1/translate.ckpt \
+    --hparams_path=nmt/standard_hparams/wmt16.json \
+    --out_dir=../nmt_models/deen_model_1 \
+    --vocab_prefix=../wmt16/vocab.bpe.32000
+```
+
+Running above code will start one TCP server for translating German to English,
+the server listens to port 2000. 
+
+After the server starts, you can use any tcp client to connect to the server:
+```
+$ nc localhost 2000
+Vielen Dank, Herr Segni, das will ich gerne tun.
+Thank you very much .%
+```
+
 # Neural Machine Translation (seq2seq) Tutorial
 
 *Authors: Thang Luong, Eugene Brevdo, Rui Zhao ([Google Research Blogpost](https://research.googleblog.com/2017/07/building-your-own-neural-machine.html), [Github](https://github.com/tensorflow/nmt))*
